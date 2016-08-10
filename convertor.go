@@ -1,4 +1,4 @@
-package goconv
+package xconv
 
 import (
 	"reflect"
@@ -58,6 +58,10 @@ func (c *Convertor) TimeFormat(format string) *Convertor {
 
 func makeDstVal(dstVal reflect.Value) reflect.Value {
 	for dstVal.Kind() == reflect.Ptr {
+		if !dstVal.CanSet() {
+			dstVal = reflect.Indirect(dstVal)
+			break
+		}
 		val := reflect.New(dstVal.Type().Elem())
 		dstVal.Set(val)
 		dstVal = val.Elem()
@@ -67,9 +71,7 @@ func makeDstVal(dstVal reflect.Value) reflect.Value {
 
 func (c *Convertor) Apply(dst interface{}) {
 	dstVal := reflect.ValueOf(dst)
-	if dstVal.Kind() == reflect.Ptr {
-		dstVal = reflect.Indirect(dstVal)
-	}
+	dstVal = makeDstVal(dstVal)
 	c.apply(c.src, dstVal)
 }
 

@@ -1,4 +1,4 @@
-package goconv
+package xconv
 
 import (
 	"fmt"
@@ -42,11 +42,14 @@ func isFuncValid(fType reflect.Type, inTypes, outTypes []interface{}) bool {
 		if required == nil {
 			return true
 		}
-		if typ, ok := required.(reflect.Type); ok && typ != t {
-			return false
+		if typ, ok := required.(reflect.Type); ok {
+			if typ.Kind() == reflect.Interface {
+				return t.Implements(typ)
+			}
+			return typ == t
 		}
-		if kind, ok := required.(reflect.Kind); ok && kind != t.Kind() {
-			return false
+		if kind, ok := required.(reflect.Kind); ok {
+			return kind == t.Kind()
 		}
 		return true
 	}

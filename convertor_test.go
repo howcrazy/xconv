@@ -1,4 +1,4 @@
-package goconv
+package xconv
 
 import (
 	"reflect"
@@ -35,7 +35,7 @@ func TestConvertor(t *testing.T) {
 		debug("\n0:\t%s\n1:\t%s", dst1, dst2)
 
 		Convert(src1, &dst3)
-		debug(src1, dst3, src1.Unix())
+		debug(src1, dst3)
 
 		Convert(dst3, &dst4)
 		debug(dst3, dst4)
@@ -98,17 +98,17 @@ func TestConvertor1(t *testing.T) {
 		src := &Src{A: "one", B: 1024, C: time.Now(), D: 32, Z: []int{1, 2, 3}, Same: []*Base{&Base{B: 10}}}
 		NewConvertor(src).
 			Rule(reflect.String, reflect.String,
-			func(c *Convertor, src, dst reflect.Value) {
-				dst.SetString(src.String() + "xxxxxxxxxxxxx")
-			}).
+				func(c *Convertor, src, dst reflect.Value) {
+					dst.SetString(src.String() + "xxxxxxxxxxxxx")
+				}).
 			Field("E",
-			func(srcObj *Src) string {
-				return strconv.Itoa(int(srcObj.D + 100))
-			}).
+				func(srcObj *Src) string {
+					return strconv.Itoa(int(srcObj.D + 100))
+				}).
 			Field("Base",
-			func(srcObj *Src) *Base {
-				return &Base{B: srcObj.B}
-			}).
+				func(srcObj *Src) *Base {
+					return &Base{B: srcObj.B}
+				}).
 			TimeFormat(DATE_FORMAT).
 			Apply(&dst)
 		dst.Same[0].B = 1000
