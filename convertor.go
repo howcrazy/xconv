@@ -71,6 +71,9 @@ func makeDstVal(dstVal reflect.Value) reflect.Value {
 
 func (c *Convertor) Apply(dst interface{}) {
 	dstVal := reflect.ValueOf(dst)
+	if dstVal.Type().Kind() != reflect.Ptr || dstVal.IsNil() {
+		panic("Dst type must be ptr, and not nil.")
+	}
 	dstVal = makeDstVal(dstVal)
 	c.apply(c.src, dstVal)
 }
