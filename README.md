@@ -1,4 +1,6 @@
-# XConv [zh-cn](README_zh-cn.md)
+# XConv
+
+[zh-CN](README_zh-cn.md)
 
 XConv is a golang type convertor. It convert any value between types (base type,
  struct, array, slice, map, etc.)
