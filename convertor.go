@@ -30,7 +30,21 @@ func NewConvertor(src interface{}) *Convertor {
 }
 
 func (c *Convertor) Rule(inType, outType interface{}, rule ConvertFuncT) *Convertor {
-	c.convertMap.Set([]interface{}{inType}, []interface{}{outType}, rule)
+	if inType == nil || outType == nil {
+		return c
+	}
+	toSlice := func(v interface{}) []interface{} {
+		if reflect.TypeOf(v).Kind() != reflect.Slice {
+			return []interface{}{v}
+		}
+		val := reflect.ValueOf(v)
+		rs := make([]interface{}, val.Len())
+		for i := 0; i < val.Len(); i++ {
+			rs[i] = val.Index(i).Interface()
+		}
+		return rs
+	}
+	c.convertMap.Set(toSlice(inType), toSlice(outType), rule)
 	return c
 }
 

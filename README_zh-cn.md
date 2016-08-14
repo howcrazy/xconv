@@ -1,22 +1,22 @@
-# XConv [zh-cn](README_zh-cn.md)
+# XConv
 
-XConv is a golang type convertor. It convert any value between types (base type,
- struct, array, slice, map, etc.)
+一个Golang的类型转换工具，支持在各种不同的类型间进行转换（如基本类型、结构体、数组或列表、
+map等），并支持自定义转换。
 
-## Features
+## 特性
 
-- Convert between integer types
-- Convert between float types
-- Convert between array or slice
-- Convert between two map
-- Convert between time to string or integer types (int32, int64, int)
-- Convert between struct types (same field name, or custom)
-- Custom rule
-- Global custom rule
+- 整数类型间转换
+- 浮点类型转换
+- 数组或列表转换
+- map转换
+- 将时间转换成整数（unix）或字符串，也支持反向转换
+- 将一个结构体类型换换成另一个类型（复制同名属性）
+- 自定义转换规则
+- 自定义全局转换规则
 
-## Usage
+## 示例
 
-Convert directly:
+按照默认规则直接转换：
 
 ```go
 var src = []int32{1, 2, 3}
@@ -24,7 +24,7 @@ var dst []int
 xconv.Convert(src, &dst)
 ```
 
-Convert time to integer:
+将时间转换成整数：
 
 ```go
 var src = time.Now()
@@ -32,7 +32,7 @@ var dst int64
 xconv.Convert(src, &dst)
 ```
 
-Convert time to string by custom display (default display is "2006-01-02 15:04:05"):
+将时间转换成自定义格式的字符串（默认格式为"2006-01-02 15:04:05"）：
 
 ```go
 display := "2006-01-02 15"
@@ -41,8 +41,7 @@ var dst string
 xconv.NewConvertor(src).TimeFormat(display).Apply(&dst)
 ```
 
-Convert struct to another (It will convert same field name, include anonymous 
-fields. Fields must be exportable):
+结构体转换（自动转换同名属性，包括匿名属性，必须是可导出的）：
 
 ```go
 type SrcStruct{
@@ -58,7 +57,7 @@ var dst DstStruct
 xconv.Convert(src, &dst)
 ```
 
-Custom converting rule:
+自定义转换规则：
 
 ```go
 type SrcStruct{
@@ -79,7 +78,7 @@ NewConvertor(src).
     Apply(&dst)
 ```
 
-Or custom field rule:
+或修改指定属性的转换规则：
 
 ```go
 type SrcStruct{
@@ -100,7 +99,7 @@ NewConvertor(src).
     Apply(&dst)
 ```
 
-Custom global rule:
+自定义全局转换规则：
 
 ```go
 import (

@@ -15,33 +15,35 @@ type ConvertFuncT func(*Convertor, reflect.Value, reflect.Value)
 
 var ConvertMap *convertMapT
 
+var IntTypes, FloatTypes, StringTypes, TimeIntTypes, TimeTypes []interface{}
+
 func init() {
 	ConvertMap = newConvertMap()
 	// INTEGER
-	intTypes := []interface{}{reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64}
-	ConvertMap.Set(intTypes, intTypes,
+	IntTypes = []interface{}{reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64}
+	ConvertMap.Set(IntTypes, IntTypes,
 		func(c *Convertor, src, dst reflect.Value) { dst.SetInt(src.Int()) })
 	// FLOAT
-	floatTypes := []interface{}{reflect.Float32, reflect.Float64}
-	ConvertMap.Set(floatTypes, floatTypes,
+	FloatTypes = []interface{}{reflect.Float32, reflect.Float64}
+	ConvertMap.Set(FloatTypes, FloatTypes,
 		func(c *Convertor, src, dst reflect.Value) { dst.SetFloat(src.Float()) })
 	// STRING
-	stringTypes := []interface{}{reflect.String}
-	ConvertMap.Set(stringTypes, stringTypes,
+	StringTypes = []interface{}{reflect.String}
+	ConvertMap.Set(StringTypes, StringTypes,
 		func(c *Convertor, src, dst reflect.Value) { dst.SetString(src.String()) })
 	// TIME
-	timeIntTypes := []interface{}{reflect.Int, reflect.Int32, reflect.Int64}
-	timeTypes := []interface{}{new(time.Time)}
-	ConvertMap.Set(timeIntTypes, timeTypes,
+	TimeIntTypes = []interface{}{reflect.Int, reflect.Int32, reflect.Int64}
+	TimeTypes = []interface{}{new(time.Time)}
+	ConvertMap.Set(TimeIntTypes, TimeTypes,
 		func(c *Convertor, src, dst reflect.Value) { dst.Set(reflect.ValueOf(time.Unix(src.Int(), 0))) })
-	ConvertMap.Set(timeTypes, timeIntTypes,
+	ConvertMap.Set(TimeTypes, TimeIntTypes,
 		func(c *Convertor, src, dst reflect.Value) { dst.SetInt(src.Interface().(time.Time).Unix()) })
-	ConvertMap.Set(stringTypes, timeTypes,
+	ConvertMap.Set(StringTypes, TimeTypes,
 		func(c *Convertor, src, dst reflect.Value) {
 			t, _ := time.Parse(c.timeFormat, src.String())
 			dst.Set(reflect.ValueOf(t))
 		})
-	ConvertMap.Set(timeTypes, stringTypes,
+	ConvertMap.Set(TimeTypes, StringTypes,
 		func(c *Convertor, src, dst reflect.Value) {
 			dst.SetString(src.Interface().(time.Time).Format(c.timeFormat))
 		})
@@ -103,5 +105,7 @@ func (cm *convertMapT) typeName(typ interface{}) string {
 }
 
 func (cm *convertMapT) key(inType, outType interface{}) string {
-	return fmt.Sprintf("%s:%s", cm.typeName(inType), cm.typeName(outType))
+	k := fmt.Sprintf("%s:%s", cm.typeName(inType), cm.typeName(outType))
+	// debug(k)
+	return k
 }
