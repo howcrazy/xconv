@@ -170,7 +170,84 @@ func TestTime(t *testing.T) {
 	}
 }
 
-func TestConvertor1(t *testing.T) {
+func TestReturn(t *testing.T) {
+	{
+		var src int64 = 128
+		var dst1 int
+		dst2 := Convert(src, &dst1).(int)
+		debug(src, dst1, dst2)
+		if dst1 != int(src) && dst2 != dst1 {
+			t.Error("convert int64 to int (return) error")
+		}
+	}
+	{
+		var src string = "2016-08-17 23:43:12"
+		var dst1 time.Time
+		dst2 := Convert(src, &dst1).(time.Time)
+		debug("\n0:\t%s\n1:\t%s\n2:\t%s", src, dst1, dst2)
+		if dst1.Format(TIME_FORMAT) != src || !dst2.Equal(dst1) {
+			t.Error("convert string to time (return) error")
+		}
+	}
+}
+
+func TestCustom(t *testing.T) {
+	{
+		var src int64 = 100
+		var dst string
+		NewConvertor(src).
+			Rule(reflect.Int64, reflect.String,
+				func(c *Convertor, src, dst reflect.Value) {
+					dst.SetString(strconv.Itoa(int(src.Int())))
+				}).
+			Apply(&dst)
+		debug(src, dst)
+		if dst != "100" {
+			t.Error("convert int64 to string error")
+		}
+	}
+	{
+		type SrcStruct struct {
+			A int32
+			B int
+		}
+		type DstStruct struct {
+			A string
+			C int64
+		}
+		var src = SrcStruct{A: 1, B: 2}
+		var dst DstStruct
+		NewConvertor(src).
+			Rule(reflect.Int32, StringTypes,
+				func(c *Convertor, src, dst reflect.Value) {
+					dst.SetString(strconv.Itoa(int(src.Int())))
+				}).
+			Field("C",
+				func(srcObj SrcStruct) int64 {
+					return int64(srcObj.B)
+				}).
+			Apply(&dst)
+		debug(src, dst)
+		if dst.A != "1" || dst.C != 2 {
+			t.Error("convert SrcStruct to DstStruct error")
+		}
+	}
+	{
+		ConvertMap.Set(IntTypes, StringTypes,
+			func(c *Convertor, src, dst reflect.Value) {
+				dst.SetString(strconv.Itoa(int(src.Int())))
+			})
+		var src int = 100
+		var dst string
+		Convert(src, &dst)
+		debug(src, dst)
+		if dst != "100" {
+			t.Error("convert integer to string error")
+		}
+	}
+}
+
+func TestConvertor(t *testing.T) {
 	{
 		type Base struct {
 			B int
@@ -255,61 +332,5 @@ func TestConvertor1(t *testing.T) {
 			Field("DstBase", func(obj Src) DstBase { return DstBase{B: 3} }).
 			Apply(dst)
 		debug(src, dst)
-	}
-}
-
-func TestCustom(t *testing.T) {
-	{
-		var src int64 = 100
-		var dst string
-		NewConvertor(src).
-			Rule(reflect.Int64, reflect.String,
-				func(c *Convertor, src, dst reflect.Value) {
-					dst.SetString(strconv.Itoa(int(src.Int())))
-				}).
-			Apply(&dst)
-		debug(src, dst)
-		if dst != "100" {
-			t.Error("convert int64 to string error")
-		}
-	}
-	{
-		type SrcStruct struct {
-			A int32
-			B int
-		}
-		type DstStruct struct {
-			A string
-			C int64
-		}
-		var src = SrcStruct{A: 1, B: 2}
-		var dst DstStruct
-		NewConvertor(src).
-			Rule(reflect.Int32, StringTypes,
-				func(c *Convertor, src, dst reflect.Value) {
-					dst.SetString(strconv.Itoa(int(src.Int())))
-				}).
-			Field("C",
-				func(srcObj SrcStruct) int64 {
-					return int64(srcObj.B)
-				}).
-			Apply(&dst)
-		debug(src, dst)
-		if dst.A != "1" || dst.C != 2 {
-			t.Error("convert SrcStruct to DstStruct error")
-		}
-	}
-	{
-		ConvertMap.Set(IntTypes, StringTypes,
-			func(c *Convertor, src, dst reflect.Value) {
-				dst.SetString(strconv.Itoa(int(src.Int())))
-			})
-		var src int = 100
-		var dst string
-		Convert(src, &dst)
-		debug(src, dst)
-		if dst != "100" {
-			t.Error("convert integer to string error")
-		}
 	}
 }

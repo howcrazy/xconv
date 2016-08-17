@@ -14,8 +14,8 @@ type Convertor struct {
 	fieldStack []string
 }
 
-func Convert(src, dst interface{}) {
-	NewConvertor(src).Apply(dst)
+func Convert(src, dst interface{}) interface{} {
+	return NewConvertor(src).Apply(dst)
 }
 
 func NewConvertor(src interface{}) *Convertor {
@@ -83,13 +83,13 @@ func makeDstVal(dstVal reflect.Value) reflect.Value {
 	return dstVal
 }
 
-func (c *Convertor) Apply(dst interface{}) {
+func (c *Convertor) Apply(dst interface{}) interface{} {
 	dstVal := reflect.ValueOf(dst)
 	if dstVal.Type().Kind() != reflect.Ptr || dstVal.IsNil() {
 		panic("Dst type must be ptr, and not nil.")
 	}
-	dstVal = makeDstVal(dstVal)
-	c.apply(c.src, dstVal)
+	c.apply(c.src, makeDstVal(dstVal))
+	return dstVal.Elem().Interface()
 }
 
 func (c *Convertor) apply(src, dstVal reflect.Value) {
