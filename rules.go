@@ -34,6 +34,8 @@ func init() {
 	// TIME
 	TimeIntTypes = []interface{}{reflect.Int, reflect.Int32, reflect.Int64}
 	TimeTypes = []interface{}{new(time.Time)}
+	ConvertMap.Set(TimeTypes, TimeTypes,
+		func(c *Convertor, src, dst reflect.Value) { dst.Set(src) })
 	ConvertMap.Set(TimeIntTypes, TimeTypes,
 		func(c *Convertor, src, dst reflect.Value) { dst.Set(reflect.ValueOf(time.Unix(src.Int(), 0))) })
 	ConvertMap.Set(TimeTypes, TimeIntTypes,

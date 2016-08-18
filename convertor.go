@@ -1,6 +1,7 @@
 package xconv
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -8,25 +9,33 @@ import (
 type Convertor struct {
 	timeFormat string
 
-	src        reflect.Value
-	fieldRules map[string]reflect.Value
-	convertMap *convertMapT
-	fieldStack []string
+	src                reflect.Value
+	fieldRules         map[string]reflect.Value
+	fieldRulesUsed     map[string]bool
+	fieldRulesMustUsed bool
+	convertMap         *convertMapT
+	fieldStack         []string
 }
 
-func Convert(src, dst interface{}) interface{} {
-	return NewConvertor(src).Apply(dst)
+func Convert(src, dst interface{}) {
+	NewConvertor(src).Apply(dst)
 }
 
 func NewConvertor(src interface{}) *Convertor {
 	srcVal := reflect.ValueOf(src)
 	return &Convertor{
-		timeFormat: TIME_FORMAT,
-		src:        srcVal,
-		fieldRules: make(map[string]reflect.Value, 0),
-		convertMap: newConvertMap(),
-		fieldStack: make([]string, 0),
+		timeFormat:     TIME_FORMAT,
+		src:            srcVal,
+		fieldRules:     make(map[string]reflect.Value, 0),
+		fieldRulesUsed: make(map[string]bool),
+		convertMap:     newConvertMap(),
+		fieldStack:     make([]string, 0),
 	}
+}
+
+func (c *Convertor) FieldRuleMustUsed() *Convertor {
+	c.fieldRulesMustUsed = true
+	return c
 }
 
 func (c *Convertor) Rule(inType, outType interface{}, rule ConvertFuncT) *Convertor {
@@ -83,13 +92,21 @@ func makeDstVal(dstVal reflect.Value) reflect.Value {
 	return dstVal
 }
 
-func (c *Convertor) Apply(dst interface{}) interface{} {
+func (c *Convertor) Apply(dst interface{}) {
 	dstVal := reflect.ValueOf(dst)
 	if dstVal.Type().Kind() != reflect.Ptr || dstVal.IsNil() {
 		panic("Dst type must be ptr, and not nil.")
 	}
-	c.apply(c.src, makeDstVal(dstVal))
-	return dstVal.Elem().Interface()
+	dstVal = makeDstVal(dstVal)
+	c.apply(c.src, dstVal)
+	if c.fieldRulesMustUsed {
+		for fieldName, _ := range c.fieldRules {
+			if _, ok := c.fieldRulesUsed[fieldName]; !ok {
+				panic(fmt.Sprintf("Field \"%s\" is noused", fieldName))
+			}
+		}
+	}
+	c.fieldRulesUsed = make(map[string]bool)
 }
 
 func (c *Convertor) apply(src, dstVal reflect.Value) {
@@ -138,6 +155,7 @@ func (c *Convertor) applyStruct(src, srcVal, dstVal reflect.Value) {
 		}
 		ruleName := strings.Join(append(c.fieldStack, fieldName), ".")
 		if fieldRule, ok := c.fieldRules[ruleName]; ok {
+			c.fieldRulesUsed[ruleName] = true
 			r := fieldRule.Call([]reflect.Value{src})
 			fieldVal.Set(r[0])
 			continue
@@ -158,7 +176,7 @@ func (c *Convertor) applyField(src, srcVal, dstVal reflect.Value) {
 		f(c, srcVal, dstVal)
 		return
 	}
-	if srcVal.Type() == dstVal.Type() {
+	if dstVal.Kind() != reflect.Struct && srcVal.Type() == dstVal.Type() {
 		dstVal.Set(srcVal)
 		return
 	}
