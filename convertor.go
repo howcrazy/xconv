@@ -94,8 +94,11 @@ func makeDstVal(dstVal reflect.Value) reflect.Value {
 
 func (c *Convertor) Apply(dst interface{}) {
 	dstVal := reflect.ValueOf(dst)
-	if dstVal.Type().Kind() != reflect.Ptr || dstVal.IsNil() {
+	if dstVal.Kind() != reflect.Ptr || dstVal.IsNil() {
 		panic("Dst type must be ptr, and not nil.")
+	}
+	if !reflect.Indirect(c.src).IsValid() {
+		return
 	}
 	dstVal = makeDstVal(dstVal)
 	c.apply(c.src, dstVal)
@@ -111,8 +114,11 @@ func (c *Convertor) Apply(dst interface{}) {
 
 func (c *Convertor) apply(src, dstVal reflect.Value) {
 	srcVal := src
-	if srcVal.Type().Kind() == reflect.Ptr {
+	if srcVal.Kind() == reflect.Ptr {
 		srcVal = reflect.Indirect(srcVal)
+	}
+	if !srcVal.IsValid() {
+		return
 	}
 	dstVal = makeDstVal(dstVal)
 	switch k := dstVal.Kind(); k {
@@ -125,24 +131,16 @@ func (c *Convertor) apply(src, dstVal reflect.Value) {
 		for idx := 0; idx < min(val.Len(), srcVal.Len()); idx++ {
 			c.apply(srcVal.Index(idx), val.Index(idx))
 		}
-	case reflect.Map:
-		val := reflect.MakeMap(dstVal.Type())
-		dstType := val.Type()
-		for _, keyVal := range srcVal.MapKeys() {
-			valueVal := srcVal.MapIndex(keyVal)
-			dstKeyVal := reflect.New(dstType.Key()).Elem()
-			c.apply(keyVal, dstKeyVal)
-			dstValueVal := reflect.New(dstType.Elem()).Elem()
-			c.apply(valueVal, dstValueVal)
-			val.SetMapIndex(dstKeyVal, dstValueVal)
-		}
-		dstVal.Set(val)
 	default:
 		c.applyField(src, srcVal, dstVal)
 	}
 }
 
 func (c *Convertor) applyStruct(src, srcVal, dstVal reflect.Value) {
+	if !srcVal.IsValid() {
+		dstVal.Set(reflect.ValueOf(nil))
+		return
+	}
 	dstTyp := dstVal.Type()
 	srcTyp := srcVal.Type()
 	for idx := 0; idx < dstTyp.NumField(); idx++ {
@@ -160,10 +158,13 @@ func (c *Convertor) applyStruct(src, srcVal, dstVal reflect.Value) {
 			fieldVal.Set(r[0])
 			continue
 		}
-		fieldVal = makeDstVal(fieldVal)
 		if _, has := srcTyp.FieldByName(fieldName); has {
 			c.fieldStack = append(c.fieldStack, fieldName)
-			c.apply(srcVal.FieldByName(fieldName), fieldVal)
+			val := srcVal.FieldByName(fieldName)
+			if reflect.Indirect(val).IsValid() {
+				fieldVal = makeDstVal(fieldVal)
+				c.apply(val, fieldVal)
+			}
 			c.fieldStack = c.fieldStack[0 : len(c.fieldStack)-1]
 		} else {
 			warning("Field '%s' is not found", ruleName)
@@ -172,19 +173,45 @@ func (c *Convertor) applyStruct(src, srcVal, dstVal reflect.Value) {
 }
 
 func (c *Convertor) applyField(src, srcVal, dstVal reflect.Value) {
-	if f, has := c.convertMap.Get(srcVal, dstVal); has {
-		f(c, srcVal, dstVal)
+	if !srcVal.IsValid() {
+		dstVal.Set(reflect.ValueOf(nil))
 		return
+	}
+	srcIsIf := srcVal.Kind() == reflect.Interface
+	dstIsIf := dstVal.Kind() == reflect.Interface
+	if srcIsIf && dstIsIf {
+		dstVal.Set(srcVal)
+		return
+	} else if srcIsIf {
+		newSrcVal := reflect.ValueOf(srcVal.Interface())
+		c.apply(newSrcVal, dstVal)
+		return
+	} else if dstIsIf {
+		newDstVal := reflect.New(srcVal.Type()).Elem()
+		c.apply(srcVal, newDstVal)
+		dstVal.Set(newDstVal)
+		return
+	}
+	var skipConvertMap bool
+	if f, has := c.convertMap.Get(srcVal, dstVal); has {
+		if f == nil {
+			skipConvertMap = true
+		} else {
+			f(c, srcVal, dstVal)
+			return
+		}
 	}
 	if dstVal.Kind() != reflect.Struct && srcVal.Type() == dstVal.Type() {
 		dstVal.Set(srcVal)
 		return
 	}
-	if f, has := ConvertMap.Get(srcVal, dstVal); has {
-		f(c, srcVal, dstVal)
-		return
+	if !skipConvertMap {
+		if f, has := ConvertMap.Get(srcVal, dstVal); has {
+			f(c, srcVal, dstVal)
+			return
+		}
 	}
-	if dstVal.Kind() == reflect.Struct {
+	if dstVal.Kind() == reflect.Struct && srcVal.Kind() == reflect.Struct {
 		c.applyStruct(src, srcVal, dstVal)
 		return
 	}

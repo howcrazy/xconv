@@ -97,12 +97,45 @@ func TestStruct(t *testing.T) {
 }
 
 func TestMap(t *testing.T) {
-	var src = map[int32]int64{1: 2, 3: 4}
-	var dst map[int]int
-	Convert(src, &dst)
-	debug(src, dst)
-	if len(src) != len(dst) {
-		t.Error("convert map[int32][int64] to map[int][int] error")
+	{
+		var src = map[int32]int64{1: 2, 3: 4}
+		var dst map[int]int
+		Convert(src, &dst)
+		debug(src, dst)
+		if len(src) != len(dst) {
+			t.Error("convert map[int32][int64] to map[int][int] error")
+		}
+	}
+	{
+		type Inner struct {
+			X string
+		}
+		type Src struct {
+			A int
+			B string
+			C *Inner
+		}
+		var src = Src{A: 100, B: "Bee", C: &Inner{X: "INNER"}}
+		var dst map[string]interface{}
+		Convert(src, &dst)
+		debug(src, dst)
+	}
+	{
+		type Inner struct {
+			X string
+		}
+		var src = map[string]interface{}{
+			"A": 100,
+			"B": "Bee",
+			"C": Inner{X: "INNER"},
+		}
+		var dst struct {
+			A int
+			B string
+			C *Inner
+		}
+		Convert(src, &dst)
+		debug(src, dst)
 	}
 }
 

@@ -31,7 +31,7 @@ func init() {
 	StringTypes = []interface{}{reflect.String}
 	ConvertMap.Set(StringTypes, StringTypes,
 		func(c *Convertor, src, dst reflect.Value) { dst.SetString(src.String()) })
-	// TIME
+	// TIME -> TIME; TIME -> INTEGER; INTEGER -> TIME
 	TimeIntTypes = []interface{}{reflect.Int, reflect.Int32, reflect.Int64}
 	TimeTypes = []interface{}{new(time.Time)}
 	ConvertMap.Set(TimeTypes, TimeTypes,
@@ -49,6 +49,59 @@ func init() {
 		func(c *Convertor, src, dst reflect.Value) {
 			dst.SetString(src.Interface().(time.Time).Format(c.timeFormat))
 		})
+
+	// Map -> Map
+	ConvertMap.Set1(reflect.Map, reflect.Map, func(c *Convertor, src, dst reflect.Value) {
+		val := reflect.MakeMap(dst.Type())
+		dstType := val.Type()
+		for _, keyVal := range src.MapKeys() {
+			valueVal := src.MapIndex(keyVal)
+			dstKeyVal := reflect.New(dstType.Key()).Elem()
+			c.apply(keyVal, dstKeyVal)
+			dstValueVal := reflect.New(dstType.Elem()).Elem()
+			c.apply(valueVal, dstValueVal)
+			val.SetMapIndex(dstKeyVal, dstValueVal)
+		}
+		dst.Set(val)
+	})
+	// Struct -> Map
+	ConvertMap.Set1(reflect.Struct, reflect.Map, func(c *Convertor, src, dst reflect.Value) {
+		val := reflect.MakeMap(dst.Type())
+		dstType := val.Type()
+		if dstType.Key().Kind() != reflect.String {
+			warning("Key type of the map must be string!")
+			return
+		}
+		srcType := src.Type()
+		for idx := 0; idx < srcType.NumField(); idx++ {
+			fieldTyp := srcType.FieldByIndex([]int{idx})
+			fieldName := fieldTyp.Name
+			fieldVal := src.FieldByIndex([]int{idx})
+			dstValueVal := reflect.New(dstType.Elem()).Elem()
+			c.apply(fieldVal, dstValueVal)
+			val.SetMapIndex(reflect.ValueOf(fieldName), dstValueVal)
+		}
+		dst.Set(val)
+	})
+	// Map -> Struct
+	ConvertMap.Set1(reflect.Map, reflect.Struct, func(c *Convertor, src, dst reflect.Value) {
+		if src.Type().Key().Kind() != reflect.String {
+			warning("Key type of the map must be string!")
+			return
+		}
+		dstTyp := dst.Type()
+		for idx := 0; idx < dstTyp.NumField(); idx++ {
+			fieldTyp := dstTyp.FieldByIndex([]int{idx})
+			fieldVal := dst.FieldByIndex([]int{idx})
+			fieldName := fieldTyp.Name
+			if !fieldVal.CanSet() {
+				warning("Field '%s' can not set", fieldName)
+				continue
+			}
+			val := src.MapIndex(reflect.ValueOf(fieldName))
+			c.apply(val, fieldVal)
+		}
+	})
 }
 
 type convertMapT struct {
@@ -57,6 +110,10 @@ type convertMapT struct {
 
 func newConvertMap() *convertMapT {
 	return &convertMapT{cmap: make(map[string]ConvertFuncT)}
+}
+
+func (cm *convertMapT) Set1(inType, outType interface{}, convertorF ConvertFuncT) {
+	cm.Set([]interface{}{inType}, []interface{}{outType}, convertorF)
 }
 
 func (cm *convertMapT) Set(inTypes, outTypes []interface{}, convertorF ConvertFuncT) {
@@ -71,17 +128,17 @@ func (cm *convertMapT) Set(inTypes, outTypes []interface{}, convertorF ConvertFu
 func (cm *convertMapT) Get(inVal, outVal reflect.Value) (f ConvertFuncT, has bool) {
 	inType, outType := inVal.Type(), outVal.Type()
 	for _, in := range []interface{}{inType, inType.Kind()} {
-		if k, kok := in.(reflect.Kind); kok {
-			if k == reflect.Struct {
-				continue
-			}
-		}
+		// if k, kok := in.(reflect.Kind); kok {
+		// 	if k == reflect.Struct {
+		// 		continue
+		// 	}
+		// }
 		for _, out := range []interface{}{outType, outType.Kind()} {
-			if k, kok := out.(reflect.Kind); kok {
-				if k == reflect.Struct {
-					continue
-				}
-			}
+			// if k, kok := out.(reflect.Kind); kok {
+			// 	if k == reflect.Struct {
+			// 		continue
+			// 	}
+			// }
 			key := cm.key(in, out)
 			f, has = cm.cmap[key]
 			if has {
@@ -108,6 +165,5 @@ func (cm *convertMapT) typeName(typ interface{}) string {
 
 func (cm *convertMapT) key(inType, outType interface{}) string {
 	k := fmt.Sprintf("%s:%s", cm.typeName(inType), cm.typeName(outType))
-	// debug(k)
 	return k
 }
